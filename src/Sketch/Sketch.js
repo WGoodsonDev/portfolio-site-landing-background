@@ -12,27 +12,41 @@ export default function sketch(p) {
     let gridX = 0;
     let gridY = 0;
 
+    // Magnitude of gravitational constant
     let gravityMag = 1;
-    let mouseMass = 100;
-    let pointMass = 1;
+
+
 
     let seedPoints = [];
+    let seedPointsInitial = [];
 
     let cellColorSeeds = [];
 
-    let noiseSeed = 0;
-    let noiseIncrement = 0;
-    const noiseMax = 50;
+    let noiseSeedX = 0;
+    let noiseSeedY = 0;
+    let noiseIncrementX = 0;
+    let noiseIncrementY = 0;
+    const noiseMax = 10000;
+    const noiseOffset = 10;
+
 
     // Initialization/reset and RNG
     function randomizeNoise() {
-        noiseSeed = p.random(1);
-        noiseIncrement = p.random(0.02, 0.05);
+        noiseSeedX = p.random(noiseMax);
+        noiseIncrementX = p.random(-0.01, 0.01);
+
+        noiseSeedY = p.random(noiseMax);
+        noiseIncrementY = p.random(-0.01, 0.01);
     }
     function incrementNoise() {
-        noiseSeed += noiseIncrement;
-        if(noiseSeed > noiseMax || noiseSeed < 0){
-            noiseIncrement = -noiseIncrement;
+        noiseSeedX += noiseIncrementX;
+        if(noiseSeedX > noiseMax || noiseSeedX < 0){
+            noiseIncrementX = -noiseIncrementX;
+        }
+
+        noiseSeedY += noiseIncrementY;
+        if(noiseSeedY > noiseMax || noiseSeedY < 0){
+            noiseIncrementY = -noiseIncrementY;
         }
     }
     function newPoints() {
@@ -45,6 +59,7 @@ export default function sketch(p) {
             for(let j = -2; j < numColumns + 2; j++){
                 const x = p.random(j * gridX, (j+1) * gridX);
                 const y = p.random(i * gridY, (i+1) * gridY);
+                seedPointsInitial.push([x, y]);
                 seedPoints.push([x, y]);
             }
         }
@@ -166,7 +181,7 @@ export default function sketch(p) {
     // P5 lifecycle
     p.setup = () => {
         // Initialize canvas
-        p.createCanvas(1600, 800);
+        p.createCanvas(1920, 943);
         // Initialize seed points
         newPoints();
         // Seed RNG with a random value
@@ -180,8 +195,8 @@ export default function sketch(p) {
         p.background(180);
 
         // Update seed points every frame
-        seedPoints = seedPoints.map(point => {
-            const ptVector = p.createVector(point[0], point[1]);
+        seedPoints = seedPoints.map((point, i) => {
+            const ptVector = p.createVector(seedPointsInitial[i][0], seedPointsInitial[i][1]);
             const mouseVector = p.createVector(p.mouseX, p.mouseY);
             const mouseToPointDirection = mouseVector.sub(ptVector).normalize();
 
@@ -190,7 +205,11 @@ export default function sketch(p) {
             // let gravForce = mouseToPoint.div(Math.pow(dist, 1));
             // let gravForce = mouseToPoint.normalize().div(8);
             // let pushForce = mouseToPointDirection.mult(gravityMag / (mappedDist));
-            let pushForce = p.createVector(0, 0);
+            let noiseOutputMappedX = p.map(p.noise(noiseSeedX + (noiseOffset * i)), 0, 1, -0.1, 0.1);
+            let noiseOutputMappedY = p.map(p.noise(noiseSeedY + (noiseOffset * i)), 0, 1, -0.1, 0.1);
+
+
+            let pushForce = p.createVector(noiseOutputMappedX, noiseOutputMappedY);
 
             const dx = pushForce.x;
             const dy = pushForce.y;
@@ -236,8 +255,11 @@ export default function sketch(p) {
         // On-screen debug text
         p.fill('black');
         p.textSize(24);
-        // p.text('Noise input: ' + noiseSeed.toString(), 10, 30);
-        // p.text('Noise value: ' + p.noise(noiseSeed), 10, 50);
+        p.text('NoiseX input: ' + noiseSeedX.toString(), 10, 30);
+        p.text('NoiseX value: ' + p.noise(noiseSeedX), 10, 50);
+
+        p.text('NoiseY input: ' + noiseSeedY.toString(), 10, 70);
+        p.text('NoiseY value: ' + p.noise(noiseSeedY), 10, 90);
 
         // Increment noise input value
         incrementNoise();
