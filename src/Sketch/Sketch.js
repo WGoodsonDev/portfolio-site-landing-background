@@ -3,6 +3,7 @@ import Delaunator from "delaunator";
 
 export default function sketch(p) {
 
+    // Globals
     const numPoints = 25;
 
     const numColumns = 16;
@@ -23,6 +24,7 @@ export default function sketch(p) {
     let noiseIncrement = 0;
     const noiseMax = 50;
 
+    // Initialization/reset and RNG
     function randomizeNoise() {
         noiseSeed = p.random(1);
         noiseIncrement = p.random(0.02, 0.05);
@@ -56,6 +58,7 @@ export default function sketch(p) {
     }
 
 
+    // Helper functions for manipulating Delaunator object
     function triangleOfEdge(e)  { return Math.floor(e / 3); }
     function nextHalfedge(e) { return (e % 3 === 2) ? e - 2 : e + 1; }
     function prevHalfedge(e) { return (e % 3 === 0) ? e + 2 : e - 1; }
@@ -133,8 +136,8 @@ export default function sketch(p) {
         }
     }
 
+    // Callback functions for drawing
     const drawHalfLines = (e,a,b) => {
-
         p.line(a[0], a[1], b[0], b[1])
     };
     const drawTriangle = (t, pts) => {
@@ -150,7 +153,6 @@ export default function sketch(p) {
         p.fill('black');
         p.circle(circCenter[0], circCenter[1], 4);
     };
-
     const drawVCells = (pt, verts, hue) => {
         p.noFill();
         p.stroke('black');
@@ -161,9 +163,13 @@ export default function sketch(p) {
         p.endShape();
     };
 
+    // P5 lifecycle
     p.setup = () => {
+        // Initialize canvas
         p.createCanvas(1600, 800);
+        // Initialize seed points
         newPoints();
+        // Seed RNG with a random value
         randomizeNoise();
         for(let i = 0; i < seedPoints.length * 2; i++){
             cellColorSeeds.push(p.random(100));
@@ -173,6 +179,7 @@ export default function sketch(p) {
     p.draw = () => {
         p.background(180);
 
+        // Update seed points every frame
         seedPoints = seedPoints.map(point => {
             const ptVector = p.createVector(point[0], point[1]);
             const mouseVector = p.createVector(p.mouseX, p.mouseY);
@@ -192,17 +199,28 @@ export default function sketch(p) {
         });
 
 
-
+        // Set up Delaunator object from seed points
         const delaunay = Delaunator.from(seedPoints);
 
+        // Draw Delaunay triangulation
+        //  two different ways:
+        //  1) By calculating and drawing half-lines
+        //  2) By constructing and drawing entire triangles
         p.stroke('white');
         forEachTriangleEdge(seedPoints, delaunay, drawHalfLines);
         // forEachTriangle(seedPoints, delaunay, drawTriangle);
+
+        // Draw Voronoi partitioning with seed points as "geographic" center points
+        //
+        //
+        //
         p.stroke('black');
         // forEachTriangle(seedPoints, delaunay, drawCircumcenter);
         forEachVoronoiEdge(seedPoints, delaunay, drawHalfLines);
         // forEachVoronoiCell(seedPoints, delaunay, drawVCells);
 
+
+        // Draw lines from seed point to mouse
         seedPoints.forEach(point => {
             const ptVector = p.createVector(point[0], point[1]);
             const mouseVector = p.createVector(p.mouseX, p.mouseY);
@@ -215,19 +233,21 @@ export default function sketch(p) {
 
         });
 
+        // On-screen debug text
         p.fill('black');
         p.textSize(24);
-        // p.text('Noise seed: ' + noiseSeed.toString(), 10, 30);
+        // p.text('Noise input: ' + noiseSeed.toString(), 10, 30);
         // p.text('Noise value: ' + p.noise(noiseSeed), 10, 50);
 
+        // Increment noise input value
         incrementNoise();
 
     }
 
+    // Mouse is full clicked
     p.mouseClicked = () => {
         newPoints();
         randomizeNoise();
-
     }
 
 
