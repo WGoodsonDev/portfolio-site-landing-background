@@ -5,7 +5,7 @@ export default function sketch(p) {
 
     const numPoints = 25;
 
-    const numColumns = 10;
+    const numColumns = 16;
     const numRows = 10;
 
     let gridX = 0;
@@ -162,7 +162,7 @@ export default function sketch(p) {
     };
 
     p.setup = () => {
-        p.createCanvas(800, 800);
+        p.createCanvas(1600, 800);
         newPoints();
         randomizeNoise();
         for(let i = 0; i < seedPoints.length * 2; i++){
@@ -206,9 +206,10 @@ export default function sketch(p) {
         seedPoints.forEach(point => {
             const ptVector = p.createVector(point[0], point[1]);
             const mouseVector = p.createVector(p.mouseX, p.mouseY);
-            const hue = p.map(ptVector.dist(mouseVector), 0, p.width/2, 0, 255);
+            const dist = ptVector.dist(mouseVector);
+            const hue = p.map(dist, 0, 180, 0, 120);
             p.stroke(hue);
-            if(hue < 150){
+            if(dist < 180){
                 p.line(ptVector.x, ptVector.y, mouseVector.x, mouseVector.y);
             }
 
