@@ -18,25 +18,32 @@ export default function sketch(p) {
 
 
     let seedPoints = [];
-    let seedPointsInitial = [];
+    let anchorPoints = [];
 
     let cellColorSeeds = [];
 
     let noiseSeedX = 0;
     let noiseSeedY = 0;
     let noiseIncrementX = 0;
+    const noiseIncrementXMax = 0.01;
     let noiseIncrementY = 0;
+    const noiseIncrementYMax = 0.01;
     const noiseMax = 10000;
-    const noiseOffset = 10;
+
+
+    const noiseOffset = 1;
+    const pointWanderMaxSpeed = 1;
+    const anchorMass = 1;
+    const wandererMass = 0.1;
 
 
     // Initialization/reset and RNG
     function randomizeNoise() {
         noiseSeedX = p.random(noiseMax);
-        noiseIncrementX = p.random(-0.01, 0.01);
+        noiseIncrementX = p.random(-noiseIncrementXMax, noiseIncrementXMax);
 
         noiseSeedY = p.random(noiseMax);
-        noiseIncrementY = p.random(-0.01, 0.01);
+        noiseIncrementY = p.random(-noiseIncrementYMax, noiseIncrementYMax);
     }
     function incrementNoise() {
         noiseSeedX += noiseIncrementX;
@@ -51,6 +58,7 @@ export default function sketch(p) {
     }
     function newPoints() {
         seedPoints = [];
+        anchorPoints = [];
         gridX = p.width / numColumns;
         gridY = p.height / numRows;
 
@@ -59,7 +67,7 @@ export default function sketch(p) {
             for(let j = -2; j < numColumns + 2; j++){
                 const x = p.random(j * gridX, (j+1) * gridX);
                 const y = p.random(i * gridY, (i+1) * gridY);
-                seedPointsInitial.push([x, y]);
+                anchorPoints.push([x, y]);
                 seedPoints.push([x, y]);
             }
         }
@@ -151,6 +159,8 @@ export default function sketch(p) {
         }
     }
 
+
+
     // Callback functions for drawing
     const drawHalfLines = (e,a,b) => {
         p.line(a[0], a[1], b[0], b[1])
@@ -181,7 +191,7 @@ export default function sketch(p) {
     // P5 lifecycle
     p.setup = () => {
         // Initialize canvas
-        p.createCanvas(1920, 943);
+        p.createCanvas(p.windowWidth, p.windowHeight);
         // Initialize seed points
         newPoints();
         // Seed RNG with a random value
@@ -189,32 +199,59 @@ export default function sketch(p) {
         for(let i = 0; i < seedPoints.length * 2; i++){
             cellColorSeeds.push(p.random(100));
         }
+
+        p.strokeWeight(2);
     }
 
     p.draw = () => {
         p.background(180);
-
         // Update seed points every frame
         seedPoints = seedPoints.map((point, i) => {
-            const ptVector = p.createVector(seedPointsInitial[i][0], seedPointsInitial[i][1]);
+            // Reference position vectors for anchor point, seed point, and current mouse position
+            const anchorVector = p.createVector(anchorPoints[i][0], anchorPoints[i][1]);
+            const ptVector = p.createVector(point[0], point[1]);
             const mouseVector = p.createVector(p.mouseX, p.mouseY);
-            const mouseToPointDirection = mouseVector.sub(ptVector).normalize();
 
-            const dist = mouseVector.dist(ptVector);
-            const mappedDist = p.map(dist, 0, p.width / 2, 0, 1);
-            // let gravForce = mouseToPoint.div(Math.pow(dist, 1));
-            // let gravForce = mouseToPoint.normalize().div(8);
-            // let pushForce = mouseToPointDirection.mult(gravityMag / (mappedDist));
-            let noiseOutputMappedX = p.map(p.noise(noiseSeedX + (noiseOffset * i)), 0, 1, -0.1, 0.1);
-            let noiseOutputMappedY = p.map(p.noise(noiseSeedY + (noiseOffset * i)), 0, 1, -0.1, 0.1);
+            // Map noise output to be from -pointWanderMaxSpeed to pointWanderMaxSpeed
+            const noiseOutputMappedX = p.map(p.noise(noiseSeedX + (noiseOffset * i)), 0, 1, -pointWanderMaxSpeed, pointWanderMaxSpeed);
+            const noiseOutputMappedY = p.map(p.noise(noiseSeedY + (noiseOffset * i)), 0, 1, -pointWanderMaxSpeed, pointWanderMaxSpeed);
+            // Combine into 1 velocity vector
+            let wanderVelocity = p.createVector(noiseOutputMappedX, noiseOutputMappedY);
 
+            // Create vector from seed point location to anchor point location
+            const ptToAnchor = anchorVector.sub(ptVector);
+            const currentDisplacement = ptToAnchor.mag();
+            // Magnitude of 1 (for now)
+            let anchorForce = ptToAnchor.normalize();
 
-            let pushForce = p.createVector(noiseOutputMappedX, noiseOutputMappedY);
+            // Create vector from mouse position to seed point
+            const mouseToPt = ptVector.sub(mouseVector);
+            const mouseDisplacement = ptVector.mag();
+            // Magnitude of 0.5 (for now)
+            let mouseForce = mouseToPt.normalize().div(2);
 
-            const dx = pushForce.x;
-            const dy = pushForce.y;
+            // If seed point is within 4 pixels of anchor point on this frame, zero out its velocity
+            if(currentDisplacement < 4){
+                anchorForce.mult(0);
+                wanderVelocity.mult(0);
+            }
 
-            return [point[0] + dx, point[1] + dy];
+            // Delta x and Delta y for this frame
+            const dx = wanderVelocity.x + anchorForce.x + mouseForce.x;
+            const dy = wanderVelocity.y + anchorForce.y + mouseForce.y;
+            // const dx = anchorForce.x;
+            // const dy = anchorForce.y;
+
+            const newX = point[0] + dx;
+            const newY = point[1] + dy;
+
+            return [newX, newY];
+        });
+
+        // Display black dot for each anchor point
+        anchorPoints.forEach(point => {
+            p.stroke('black');
+            p.point(point[0], point[1]);
         });
 
 
@@ -235,7 +272,7 @@ export default function sketch(p) {
         //
         p.stroke('black');
         // forEachTriangle(seedPoints, delaunay, drawCircumcenter);
-        forEachVoronoiEdge(seedPoints, delaunay, drawHalfLines);
+        // forEachVoronoiEdge(seedPoints, delaunay, drawHalfLines);
         // forEachVoronoiCell(seedPoints, delaunay, drawVCells);
 
 
@@ -244,7 +281,7 @@ export default function sketch(p) {
             const ptVector = p.createVector(point[0], point[1]);
             const mouseVector = p.createVector(p.mouseX, p.mouseY);
             const dist = ptVector.dist(mouseVector);
-            const hue = p.map(dist, 0, 180, 0, 120);
+            const hue = p.map(dist, 0, 180, 0, 180);
             p.stroke(hue);
             if(dist < 180){
                 p.line(ptVector.x, ptVector.y, mouseVector.x, mouseVector.y);
@@ -255,11 +292,11 @@ export default function sketch(p) {
         // On-screen debug text
         p.fill('black');
         p.textSize(24);
-        p.text('NoiseX input: ' + noiseSeedX.toString(), 10, 30);
-        p.text('NoiseX value: ' + p.noise(noiseSeedX), 10, 50);
-
-        p.text('NoiseY input: ' + noiseSeedY.toString(), 10, 70);
-        p.text('NoiseY value: ' + p.noise(noiseSeedY), 10, 90);
+        // p.text('NoiseX input: ' + noiseSeedX.toString(), 10, 30);
+        // p.text('NoiseX value: ' + p.noise(noiseSeedX), 10, 50);
+        //
+        // p.text('NoiseY input: ' + noiseSeedY.toString(), 10, 70);
+        // p.text('NoiseY value: ' + p.noise(noiseSeedY), 10, 90);
 
         // Increment noise input value
         incrementNoise();
